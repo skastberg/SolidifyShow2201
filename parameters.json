@@ -1,0 +1,14 @@
+{
+  "IncidentsQueue": {
+    "type": "String",
+    "value": "skiareasnowincidents"
+  },
+  "IncidentThreshold": {
+    "type": "Int",
+    "value": 65
+  },
+  "IncomingQueue": {
+    "type": "String",
+    "value": "skiareasnow"
+  }
+}

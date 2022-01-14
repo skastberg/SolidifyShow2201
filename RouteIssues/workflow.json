@@ -1,0 +1,190 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Parse_cloud_event": {
+                "type": "ParseJson",
+                "inputs": {
+                    "content": "@variables('MsgBody')",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "source": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string"
+                            },
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "Name": {
+                                        "type": "string"
+                                    },
+                                    "Country": {
+                                        "type": "string"
+                                    },
+                                    "ExpectedCm": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "time": {
+                                "type": "string"
+                            },
+                            "specversion": {
+                                "type": "string"
+                            },
+                            "dataschema": {
+                                "type": "string"
+                            },
+                            "datacontenttype": {
+                                "type": "string"
+                            },
+                            "subject": {
+                                "type": "string"
+                            },
+                            "traceparent": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Initialize_MsgBody": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Initialize_MsgBody": {
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "MsgBody",
+                            "type": "string",
+                            "value": "@{triggerOutputs()?['body']?['contentData']}"
+                        }
+                    ]
+                },
+                "runAfter": {}
+            },
+            "Condition": {
+                "type": "If",
+                "expression": {
+                    "and": [
+                        {
+                            "greaterOrEquals": [
+                                "@body('Parse_cloud_event')?['data']?['ExpectedCm']",
+                                "@parameters('IncidentThreshold')"
+                            ]
+                        }
+                    ]
+                },
+                "actions": {
+                    "Compose_Incident_message": {
+                        "type": "Compose",
+                        "inputs": {
+                            "impact": 1,
+                            "urgency": 1,
+                            "description": "Snowing a lot in @{body('Parse_cloud_event')?['data']?['Name']}, @{body('Parse_cloud_event')?['data']?['Country']} expected snow is @{body('Parse_cloud_event')?['data']?['ExpectedCm']} cm",
+                            "short_description": "Snowing in @{body('Parse_cloud_event')?['data']?['Name']}"
+                        },
+                        "runAfter": {}
+                    },
+                    "Send_message": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "entityName": "@parameters('IncidentsQueue')",
+                                "message": {
+                                    "contentData": {
+                                        "Incident": "",
+                                        "data": "@body('Parse_cloud_event')?['data']"
+                                    },
+                                    "contentType": "application/json"
+                                }
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "serviceBus",
+                                "operationId": "sendMessage",
+                                "serviceProviderId": "/serviceProviders/serviceBus"
+                            }
+                        },
+                        "runAfter": {
+                            "Create_Incident": [
+                                "Succeeded"
+                            ]
+                        }
+                    },
+                    "Create_Incident": {
+                        "type": "ApiConnection",
+                        "inputs": {
+                            "host": {
+                                "connection": {
+                                    "referenceName": "service-now"
+                                }
+                            },
+                            "method": "post",
+                            "body": {
+                                "impact": "2",
+                                "short_description": "Snowing in @{body('Parse_cloud_event')?['data']?['Name']}",
+                                "description": "Snowing a lot in @{body('Parse_cloud_event')?['data']?['Name']}, @{body('Parse_cloud_event')?['data']?['Country']} expected snow is @{body('Parse_cloud_event')?['data']?['ExpectedCm']} cm",
+                                "urgency": "1"
+                            },
+                            "path": "/api/now/v2/table/@{encodeURIComponent('incident')}",
+                            "queries": {
+                                "sysparm_display_value": false,
+                                "sysparm_exclude_reference_link": true
+                            }
+                        },
+                        "runAfter": {
+                            "Compose_Incident_message": [
+                                "Succeeded"
+                            ]
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Parse_cloud_event": [
+                        "Succeeded"
+                    ]
+                },
+                "else": {
+                    "actions": {
+                        "Terminate": {
+                            "type": "Terminate",
+                            "inputs": {
+                                "runStatus": "Succeeded"
+                            },
+                            "runAfter": {}
+                        }
+                    }
+                }
+            }
+        },
+        "triggers": {
+            "When_messages_are_available_in_a_queue": {
+                "type": "ServiceProvider",
+                "inputs": {
+                    "parameters": {
+                        "queueName": "@parameters('IncomingQueue')",
+                        "isSessionsEnabled": false
+                    },
+                    "serviceProviderConfiguration": {
+                        "connectionName": "serviceBus",
+                        "operationId": "receiveQueueMessages",
+                        "serviceProviderId": "/serviceProviders/serviceBus"
+                    }
+                },
+                "splitOn": "@triggerOutputs()?['body']"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {}
+    },
+    "kind": "Stateful"
+}

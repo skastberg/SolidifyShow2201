@@ -1,0 +1,47 @@
+on: [push]
+name: Azure Bicep
+
+jobs:
+  deploy-azure-resources:
+    runs-on: ubuntu-latest
+    steps:
+
+      # Checkout code
+    - uses: actions/checkout@main
+
+      # Log into Azure
+    - uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        enable-AzPSSession: true
+
+      # Deploy Bicep file
+    - name: deploy
+      id: deploy
+      uses: azure/arm-deploy@v1
+      with:
+        subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION }}
+        resourceGroupName: ${{ secrets.AZURE_RG }}
+        template: ./Bicep/main.bicep
+        parameters: ./Bicep/main.parameters.json ServiceNowPassword=${{ secrets.SERVICENOW_PWD }}
+        failOnStdErr: false
+
+    - name: Set access policies to connection Service Now
+      uses: Azure/powershell@v1
+      with:
+        # Specify the Az PowerShell script here.
+        inlineScript: |
+          $Properties  = @{
+                        principal = @{
+                        type = "ActiveDirectory"
+                        identity = @{
+                        tenantId = "${{ steps.deploy.outputs.TenantId }}"
+                        objectId = "${{ steps.deploy.outputs.LogicAppObjectId }}"
+                        }}}
+          $policyName = "${{ steps.deploy.outputs.ServiceNowConnectionName }}/${{secrets.LA_NAME}}-${{ steps.deploy.outputs.LogicAppObjectId }}"
+          $resource = New-AzResource -Location "${{ steps.deploy.outputs.Location }}" -ResourceGroup `
+                      "${{ secrets.AZURE_RG }}" -ResourceType "Microsoft.Web/connections/accessPolicies" `
+                      -ResourceName "$policyName" -ExtensionResourceName $policyName `
+                      -Properties $Properties -ApiVersion "2018-07-01-preview"  -Force
+        azPSVersion:  "latest"
+       

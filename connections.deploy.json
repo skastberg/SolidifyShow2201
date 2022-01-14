@@ -1,0 +1,27 @@
+{
+  "serviceProviderConnections": {
+    "serviceBus": {
+      "parameterValues": {
+        "connectionString": "@appsetting('serviceBus_connectionString')"
+      },
+      "serviceProvider": {
+        "id": "/serviceProviders/serviceBus"
+      },
+      "displayName": "SBConnection"
+    }
+  },
+  "managedApiConnections": {
+    "service-now": {
+      "api": {
+        "id": "/subscriptions/@appsetting('subscriptionId')/providers/Microsoft.Web/locations/westeurope/managedApis/service-now"
+      },
+      "connection": {
+        "id": "/subscriptions/@appsetting('subscriptionId')/resourceGroups/SolidifyShow-rg/providers/Microsoft.Web/connections/service-now"
+      },
+      "connectionRuntimeUrl": "@appsetting('serviceNowConnectionRuntimeUrl')",
+      "authentication": {
+        "type": "ManagedServiceIdentity"
+      }
+    }
+  }
+}
