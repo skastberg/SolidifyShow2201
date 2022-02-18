@@ -43,5 +43,5 @@ jobs:
                       "${{ secrets.AZURE_RG }}" -ResourceType "Microsoft.Web/connections/accessPolicies" `
                       -ResourceName "$policyName" -ExtensionResourceName $policyName `
                       -Properties $Properties -ApiVersion "2018-07-01-preview"  -Force
-        azPSVersion:  "latest"
+        azPSVersion:  "latest" 
        
